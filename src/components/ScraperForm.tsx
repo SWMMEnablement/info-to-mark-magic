@@ -7,10 +7,11 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Download, FileText, Globe, List, FileDown, Save, Code, Clock, ChevronDown, FileJson } from 'lucide-react';
+import { Loader2, Download, FileText, Globe, List, FileDown, Save, Code, Clock, ChevronDown, FileJson, FileCode } from 'lucide-react';
 import { generateTableOfContents, addTocToMarkdown, type TocItem } from '@/utils/markdownUtils';
 import { exportToPDF } from '@/utils/pdfExport';
 import { exportToHTML } from '@/utils/htmlExport';
+import { exportToXmlSitemap } from '@/utils/xmlExport';
 import { MarkdownPreview } from './MarkdownPreview';
 import { MarkdownEditor } from './MarkdownEditor';
 import { BatchExport, type SavedScrape } from './BatchExport';
@@ -311,6 +312,31 @@ export const ScraperForm = () => {
     }
   };
 
+  const handleDownloadXmlSitemap = () => {
+    if (!url) return;
+
+    try {
+      exportToXmlSitemap({
+        url,
+        toc,
+        filename: 'sitemap.xml',
+        priority: 0.8,
+        changefreq: 'weekly'
+      });
+
+      toast({
+        title: "Downloaded",
+        description: "XML sitemap saved successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate XML sitemap",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSaveToBatch = () => {
     if (!markdown || !url) return;
 
@@ -543,6 +569,10 @@ export const ScraperForm = () => {
                 <Button onClick={handleDownloadJSON} variant="outline" size="sm">
                   <FileJson className="mr-2 h-4 w-4" />
                   Export JSON
+                </Button>
+                <Button onClick={handleDownloadXmlSitemap} variant="outline" size="sm">
+                  <FileCode className="mr-2 h-4 w-4" />
+                  Export Sitemap
                 </Button>
                 <Button onClick={handleDownloadHTML} variant="outline" size="sm">
                   <Code className="mr-2 h-4 w-4" />
