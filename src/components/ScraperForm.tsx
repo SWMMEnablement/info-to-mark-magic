@@ -255,7 +255,7 @@ export const ScraperForm = () => {
           </h1>
         </div>
         <p className="text-muted-foreground text-lg">
-          Paste HTML content and convert it to clean, formatted markdown
+          Paste HTML content and convert it to clean, formatted markdown for BobSWMM
         </p>
       </div>
 
