@@ -27,6 +27,7 @@ export const ScraperForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [useManualPaste, setUseManualPaste] = useState(false);
+  const [sectionTitle, setSectionTitle] = useState('');
   const { toast } = useToast();
 
   const handleFetchUrl = async () => {
@@ -55,7 +56,10 @@ export const ScraperForm = () => {
 
       const data = await response.json();
       const convertedMarkdown = data.markdown || data.content;
-      setMarkdown(prev => prev ? prev + '\n\n---\n\n' + convertedMarkdown : convertedMarkdown);
+      const titlePrefix = sectionTitle.trim() ? `# ${sectionTitle.trim()}\n\n` : '';
+      const fullContent = titlePrefix + convertedMarkdown;
+      setMarkdown(prev => prev ? prev + '\n\n---\n\n' + fullContent : fullContent);
+      setSectionTitle('');
       
       if (convertedMarkdown.length < 100) {
         toast({
@@ -65,7 +69,9 @@ export const ScraperForm = () => {
       } else {
         toast({
           title: "Success",
-          description: "Successfully converted URL to Markdown",
+          description: sectionTitle.trim() 
+            ? `Successfully converted URL to Markdown with title "${sectionTitle.trim()}"`
+            : "Successfully converted URL to Markdown",
         });
       }
     } catch (error) {
@@ -103,11 +109,16 @@ export const ScraperForm = () => {
       } else {
         toast({
           title: "Success",
-          description: "Content converted to markdown successfully",
+          description: sectionTitle.trim()
+            ? `Content converted with title "${sectionTitle.trim()}"`
+            : "Content converted to markdown successfully",
         });
       }
       
-      setMarkdown(prev => prev ? prev + '\n\n---\n\n' + convertedMarkdown : convertedMarkdown);
+      const titlePrefix = sectionTitle.trim() ? `# ${sectionTitle.trim()}\n\n` : '';
+      const fullContent = titlePrefix + convertedMarkdown;
+      setMarkdown(prev => prev ? prev + '\n\n---\n\n' + fullContent : fullContent);
+      setSectionTitle('');
     } catch (error) {
       toast({
         title: "Conversion Failed",
@@ -254,6 +265,13 @@ export const ScraperForm = () => {
             <label className="text-sm font-medium text-foreground">
               Enter URL or Paste HTML
             </label>
+            <Input
+              type="text"
+              placeholder="Section title (optional)"
+              value={sectionTitle}
+              onChange={(e) => setSectionTitle(e.target.value)}
+              className="mb-3"
+            />
             <div className="flex gap-2 mb-3">
               <Button
                 variant={!useManualPaste ? "default" : "outline"}
