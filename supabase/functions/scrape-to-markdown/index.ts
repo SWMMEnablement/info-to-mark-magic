@@ -6,10 +6,64 @@ const corsHeaders = {
 };
 
 const MAX_PAGES = 50; // Limit to prevent abuse
+const MAX_CUSTOM_URLS = 100; // Maximum URLs in custom list
 
 interface SitemapUrl {
   loc: string;
   priority?: number;
+}
+
+// Security: Validate URLs to prevent SSRF attacks
+function isPrivateOrLocalURL(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    const hostname = url.hostname.toLowerCase();
+    
+    // Block localhost and private IP ranges
+    const blockedPatterns = [
+      /^localhost$/i,
+      /^127\./,
+      /^10\./,
+      /^172\.(1[6-9]|2[0-9]|3[01])\./,
+      /^192\.168\./,
+      /^0\.0\.0\.0$/,
+      /^169\.254\./, // Link-local
+      /^::1$/, // IPv6 localhost
+      /^fe80:/i, // IPv6 link-local
+      /^fc00:/i, // IPv6 private
+    ];
+    
+    return blockedPatterns.some(pattern => pattern.test(hostname));
+  } catch {
+    return true; // Block invalid URLs
+  }
+}
+
+function validateInputs(url: string, maxPages: number, customUrls: string[] | null): { valid: boolean; error?: string } {
+  // Validate main URL
+  if (isPrivateOrLocalURL(url)) {
+    return { valid: false, error: 'Cannot access private or local network addresses' };
+  }
+  
+  // Validate maxPages
+  if (maxPages < 1 || maxPages > MAX_PAGES) {
+    return { valid: false, error: `maxPages must be between 1 and ${MAX_PAGES}` };
+  }
+  
+  // Validate custom URLs if provided
+  if (customUrls && Array.isArray(customUrls)) {
+    if (customUrls.length > MAX_CUSTOM_URLS) {
+      return { valid: false, error: `Cannot process more than ${MAX_CUSTOM_URLS} custom URLs` };
+    }
+    
+    for (const customUrl of customUrls) {
+      if (isPrivateOrLocalURL(customUrl)) {
+        return { valid: false, error: `Cannot access private or local network addresses: ${customUrl}` };
+      }
+    }
+  }
+  
+  return { valid: true };
 }
 
 serve(async (req) => {
@@ -24,6 +78,16 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'URL is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate inputs for security
+    const validation = validateInputs(url, maxPages, customUrls);
+    if (!validation.valid) {
+      console.error('Input validation failed:', validation.error);
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
