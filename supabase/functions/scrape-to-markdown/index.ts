@@ -103,7 +103,23 @@ serve(async (req) => {
   }
 
   try {
+    // Get client IP for rate limiting and logging
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown';
+    
+    // Check rate limit
+    if (!checkRateLimit(clientIP)) {
+      console.error(`Rate limit exceeded for IP: ${clientIP}`);
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { url, useSitemap = false, maxPages = MAX_PAGES, stream = false, autoDiscoverLinks = false, customUrls = null } = await req.json();
+    
+    console.log(`[${new Date().toISOString()}] Scraping request from IP: ${clientIP}, URL: ${url}, maxPages: ${maxPages}`);
 
     if (!url) {
       return new Response(
@@ -115,7 +131,7 @@ serve(async (req) => {
     // Validate inputs for security
     const validation = validateInputs(url, maxPages, customUrls);
     if (!validation.valid) {
-      console.error('Input validation failed:', validation.error);
+      console.error(`[${new Date().toISOString()}] Input validation failed for IP: ${clientIP}, error: ${validation.error}`);
       return new Response(
         JSON.stringify({ error: validation.error }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
