@@ -55,7 +55,7 @@ export const ScraperForm = () => {
 
       const data = await response.json();
       const convertedMarkdown = data.markdown || data.content;
-      setMarkdown(convertedMarkdown);
+      setMarkdown(prev => prev ? prev + '\n\n---\n\n' + convertedMarkdown : convertedMarkdown);
       
       if (convertedMarkdown.length < 100) {
         toast({
@@ -107,7 +107,7 @@ export const ScraperForm = () => {
         });
       }
       
-      setMarkdown(convertedMarkdown);
+      setMarkdown(prev => prev ? prev + '\n\n---\n\n' + convertedMarkdown : convertedMarkdown);
     } catch (error) {
       toast({
         title: "Conversion Failed",
@@ -269,6 +269,16 @@ export const ScraperForm = () => {
               >
                 Manual Paste
               </Button>
+              {markdown && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMarkdown('')}
+                  className="ml-auto"
+                >
+                  Clear All
+                </Button>
+              )}
             </div>
             
             {!useManualPaste ? (
