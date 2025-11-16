@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Download, Copy, Eye, Code, Split, FileText, FileCode, FileType } from 'lucide-react';
 import CodeEditor from '@uiw/react-textarea-code-editor';
@@ -20,11 +21,63 @@ import { convertHtmlToMarkdown } from '@/utils/htmlToMarkdown';
 type ViewMode = 'edit' | 'preview' | 'split';
 
 export const ScraperForm = () => {
+  const [url, setUrl] = useState('');
   const [htmlContent, setHtmlContent] = useState('');
   const [markdown, setMarkdown] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
+  const [useManualPaste, setUseManualPaste] = useState(false);
   const { toast } = useToast();
+
+  const handleFetchUrl = async () => {
+    if (!url.trim()) {
+      toast({
+        title: "No URL",
+        description: "Please enter a URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('https://evzhqncqhityotzodfsp.supabase.co/functions/v1/scrape-to-markdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const convertedMarkdown = data.markdown || data.content;
+      setMarkdown(convertedMarkdown);
+      
+      if (convertedMarkdown.length < 100) {
+        toast({
+          title: "Warning",
+          description: "Converted markdown is very short. Try manual paste if auto-fetch doesn't work well.",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Successfully converted URL to Markdown",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Fetch Failed",
+        description: "Failed to fetch URL. Try pasting HTML manually instead.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleConvert = () => {
     if (!htmlContent.trim()) {
@@ -199,35 +252,85 @@ export const ScraperForm = () => {
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              Paste HTML Content
+              Enter URL or Paste HTML
             </label>
-            <Textarea
-              placeholder="Paste your HTML content here..."
-              value={htmlContent}
-              onChange={(e) => setHtmlContent(e.target.value)}
-              disabled={isLoading}
-              className="min-h-[200px] font-mono text-sm"
-            />
-          </div>
-          
-          <Button 
-            onClick={handleConvert} 
-            disabled={isLoading || !htmlContent.trim()}
-            size="lg"
-            className="w-full gap-2 font-semibold transition-all hover:scale-105"
-          >
-            {isLoading ? (
+            <div className="flex gap-2 mb-3">
+              <Button
+                variant={!useManualPaste ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUseManualPaste(false)}
+              >
+                Auto-Fetch URL
+              </Button>
+              <Button
+                variant={useManualPaste ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUseManualPaste(true)}
+              >
+                Manual Paste
+              </Button>
+            </div>
+            
+            {!useManualPaste ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Converting...
+                <input
+                  type="url"
+                  placeholder="https://example.com/page-to-convert"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleFetchUrl()}
+                  disabled={isLoading}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <Button 
+                  onClick={handleFetchUrl} 
+                  disabled={isLoading || !url.trim()}
+                  size="lg"
+                  className="w-full gap-2 font-semibold transition-all hover:scale-105 mt-3"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Fetching...
+                    </>
+                  ) : (
+                    <>
+                      <FileCode className="h-5 w-5" />
+                      Fetch & Convert to Markdown
+                    </>
+                  )}
+                </Button>
               </>
             ) : (
               <>
-                <FileCode className="h-5 w-5" />
-                Convert to Markdown
+                <Textarea
+                  placeholder="Paste your HTML content here..."
+                  value={htmlContent}
+                  onChange={(e) => setHtmlContent(e.target.value)}
+                  disabled={isLoading}
+                  className="min-h-[200px] font-mono text-sm"
+                />
+                <Button 
+                  onClick={handleConvert} 
+                  disabled={isLoading || !htmlContent.trim()}
+                  size="lg"
+                  className="w-full gap-2 font-semibold transition-all hover:scale-105 mt-3"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Converting...
+                    </>
+                  ) : (
+                    <>
+                      <FileCode className="h-5 w-5" />
+                      Convert to Markdown
+                    </>
+                  )}
+                </Button>
               </>
             )}
-          </Button>
+          </div>
         </div>
       </Card>
 
