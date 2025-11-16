@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download, Copy, Globe, Eye, Code, Split, FileText, FileCode, FileType } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Loader2, Download, Copy, Eye, Code, Split, FileText, FileCode, FileType } from 'lucide-react';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 import { MarkdownPreview } from './MarkdownPreview';
-import { z } from 'zod';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,75 +15,54 @@ import {
 import { exportToPDF } from '@/utils/pdfExport';
 import { exportToHTML } from '@/utils/htmlExport';
 import { generateTableOfContents } from '@/utils/markdownUtils';
-
-const urlSchema = z.string()
-  .trim()
-  .min(1, 'URL is required')
-  .url('Please enter a valid URL (e.g., https://example.com)')
-  .refine(
-    (url) => url.startsWith('http://') || url.startsWith('https://'),
-    'URL must start with http:// or https://'
-  );
+import { convertHtmlToMarkdown } from '@/utils/htmlToMarkdown';
 
 type ViewMode = 'edit' | 'preview' | 'split';
 
 export const ScraperForm = () => {
-  const [url, setUrl] = useState('');
+  const [htmlContent, setHtmlContent] = useState('');
   const [markdown, setMarkdown] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const { toast } = useToast();
 
-  const handleScrape = async () => {
-    // Validate URL
-    const validation = urlSchema.safeParse(url);
-    
-    if (!validation.success) {
-      const errorMessage = validation.error.errors[0]?.message || 'Invalid URL';
+  const handleConvert = () => {
+    if (!htmlContent.trim()) {
       toast({
-        title: "Invalid URL",
-        description: errorMessage,
+        title: "No Content",
+        description: "Please paste some HTML content first",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
-    setMarkdown('');
-    setLoadingStatus('Connecting to URL...');
 
     try {
-      // Simulate progress updates
-      setTimeout(() => setLoadingStatus('Fetching page content...'), 500);
-      setTimeout(() => setLoadingStatus('Parsing HTML structure...'), 1000);
-      setTimeout(() => setLoadingStatus('Converting to markdown...'), 1500);
-
-      const { data, error } = await supabase.functions.invoke('scrape-to-markdown', {
-        body: { url: validation.data }
-      });
-
-      if (error) throw error;
-
-      if (data?.markdown) {
-        setLoadingStatus('Finalizing...');
-        setMarkdown(data.markdown);
+      const convertedMarkdown = convertHtmlToMarkdown(htmlContent);
+      
+      if (!convertedMarkdown || convertedMarkdown.length < 10) {
         toast({
-          title: "Success",
-          description: "Content scraped successfully",
+          title: "Warning",
+          description: "Converted content is very short. The HTML might not have readable content.",
+          variant: "destructive",
         });
       } else {
-        throw new Error('No content returned from the scraper');
+        toast({
+          title: "Success",
+          description: "Content converted to markdown successfully",
+        });
       }
+      
+      setMarkdown(convertedMarkdown);
     } catch (error) {
       toast({
-        title: "Scraping Failed",
-        description: error instanceof Error ? error.message : "Failed to scrape content. Please check the URL and try again.",
+        title: "Conversion Failed",
+        description: error instanceof Error ? error.message : "Failed to convert content",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
-      setLoadingStatus('');
     }
   };
 
@@ -96,7 +73,7 @@ export const ScraperForm = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'scraped-content.md';
+    a.download = 'content.md';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -111,22 +88,21 @@ export const ScraperForm = () => {
   const handleExportPlainText = () => {
     if (!markdown) return;
 
-    // Strip markdown formatting
     const plainText = markdown
-      .replace(/#{1,6}\s/g, '') // Remove heading markers
-      .replace(/\*\*(.+?)\*\*/g, '$1') // Remove bold
-      .replace(/\*(.+?)\*/g, '$1') // Remove italic
-      .replace(/\[(.+?)\]\(.+?\)/g, '$1') // Remove links, keep text
-      .replace(/`(.+?)`/g, '$1') // Remove inline code
-      .replace(/```[\s\S]*?```/g, '') // Remove code blocks
-      .replace(/>\s/g, '') // Remove blockquotes
-      .replace(/[-*+]\s/g, '• '); // Replace list markers with bullets
+      .replace(/#{1,6}\s/g, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+      .replace(/`(.+?)`/g, '$1')
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/>\s/g, '')
+      .replace(/[-*+]\s/g, '• ');
 
     const blob = new Blob([plainText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'scraped-content.txt';
+    a.download = 'content.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -146,7 +122,7 @@ export const ScraperForm = () => {
       await exportToHTML({
         markdown,
         toc,
-        filename: 'scraped-content.html',
+        filename: 'content.html',
         theme: 'light',
       });
 
@@ -171,7 +147,7 @@ export const ScraperForm = () => {
       await exportToPDF({
         markdown,
         toc,
-        filename: 'scraped-content.pdf',
+        filename: 'content.pdf',
       });
 
       toast({
@@ -206,160 +182,170 @@ export const ScraperForm = () => {
   };
 
   return (
-    <div className="container mx-auto max-w-4xl px-4">
-      <Card className="p-8">
-        <div className="space-y-6">
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <Globe className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold">Web to Markdown</h1>
-            </div>
-            <p className="text-muted-foreground">
-              Convert any webpage to clean markdown format
-            </p>
-          </div>
+    <div className="container max-w-6xl mx-auto px-4">
+      <div className="text-center mb-12">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <FileCode className="h-10 w-10 text-primary animate-pulse" />
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+            HTML to Markdown Converter
+          </h1>
+        </div>
+        <p className="text-muted-foreground text-lg">
+          Paste HTML content and convert it to clean, formatted markdown
+        </p>
+      </div>
 
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                type="url"
-                placeholder="Enter URL (e.g., https://example.com)"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleScrape()}
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleScrape} 
-                disabled={isLoading || !url}
-                size="lg"
+      <Card className="p-6 bg-card/50 backdrop-blur-sm border-2 shadow-lg mb-8">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              Paste HTML Content
+            </label>
+            <Textarea
+              placeholder="Paste your HTML content here..."
+              value={htmlContent}
+              onChange={(e) => setHtmlContent(e.target.value)}
+              disabled={isLoading}
+              className="min-h-[200px] font-mono text-sm"
+            />
+          </div>
+          
+          <Button 
+            onClick={handleConvert} 
+            disabled={isLoading || !htmlContent.trim()}
+            size="lg"
+            className="w-full gap-2 font-semibold transition-all hover:scale-105"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Converting...
+              </>
+            ) : (
+              <>
+                <FileCode className="h-5 w-5" />
+                Convert to Markdown
+              </>
+            )}
+          </Button>
+        </div>
+      </Card>
+
+      {markdown && !isLoading && (
+        <div className="space-y-6">
+          <Card className="p-6 bg-card/50 backdrop-blur-sm border-2 shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-foreground">Result</h2>
+              <div className="flex gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={handleDownload}>
+                      <Code className="h-4 w-4 mr-2" />
+                      Markdown (.md)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportPlainText}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Plain Text (.txt)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportHTML}>
+                      <FileCode className="h-4 w-4 mr-2" />
+                      HTML (.html)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportPDF}>
+                      <FileType className="h-4 w-4 mr-2" />
+                      PDF (.pdf)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button onClick={handleCopy} variant="outline" size="sm">
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={viewMode === 'edit' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('edit')}
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Scraping...
-                  </>
-                ) : (
-                  'Scrape'
-                )}
+                <Code className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+              <Button
+                variant={viewMode === 'split' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('split')}
+              >
+                <Split className="h-4 w-4 mr-1" />
+                Split
+              </Button>
+              <Button
+                variant={viewMode === 'preview' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('preview')}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Preview
               </Button>
             </div>
 
-            {isLoading && (
-              <div className="border border-border rounded-lg p-8 space-y-4">
-                <div className="flex items-center justify-center gap-3">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <p className="text-sm font-medium text-foreground">{loadingStatus}</p>
-                </div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-muted rounded animate-pulse" />
-                  <div className="h-4 bg-muted rounded animate-pulse w-5/6" />
-                  <div className="h-4 bg-muted rounded animate-pulse w-4/6" />
-                  <div className="h-4 bg-muted rounded animate-pulse w-3/6" />
-                </div>
+            {viewMode === 'edit' && (
+              <div className="border border-border rounded-lg overflow-hidden bg-muted/30">
+                <CodeEditor
+                  value={markdown}
+                  language="markdown"
+                  placeholder="Converted markdown will appear here..."
+                  onChange={(e) => setMarkdown(e.target.value)}
+                  padding={15}
+                  data-color-mode="dark"
+                  style={{
+                    fontSize: 14,
+                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+                    minHeight: '500px',
+                  }}
+                />
               </div>
             )}
 
-            {markdown && !isLoading && (
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="flex-1">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={handleDownload}>
-                        <Code className="h-4 w-4 mr-2" />
-                        Markdown (.md)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleExportPlainText}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Plain Text (.txt)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleExportHTML}>
-                        <FileCode className="h-4 w-4 mr-2" />
-                        HTML (.html)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleExportPDF}>
-                        <FileType className="h-4 w-4 mr-2" />
-                        PDF (.pdf)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button 
-                    onClick={handleCopy}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy
-                  </Button>
-                </div>
+            {viewMode === 'preview' && (
+              <div className="border border-border rounded-lg p-6 bg-background prose prose-neutral dark:prose-invert max-w-none overflow-auto" style={{ maxHeight: '600px' }}>
+                <MarkdownPreview content={markdown} theme="vscDarkPlus" />
+              </div>
+            )}
 
-                <div className="flex gap-2 justify-center border-b pb-2">
-                  <Button
-                    variant={viewMode === 'edit' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('edit')}
-                  >
-                    <Code className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant={viewMode === 'split' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('split')}
-                  >
-                    <Split className="h-4 w-4 mr-2" />
-                    Split
-                  </Button>
-                  <Button
-                    variant={viewMode === 'preview' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('preview')}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Preview
-                  </Button>
+            {viewMode === 'split' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border border-border rounded-lg overflow-hidden bg-muted/30">
+                  <CodeEditor
+                    value={markdown}
+                    language="markdown"
+                    placeholder="Converted markdown..."
+                    onChange={(e) => setMarkdown(e.target.value)}
+                    padding={15}
+                    data-color-mode="dark"
+                    style={{
+                      fontSize: 13,
+                      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+                      minHeight: '500px',
+                    }}
+                  />
                 </div>
-
-                <div className={viewMode === 'split' ? 'grid grid-cols-2 gap-4' : ''}>
-                  {(viewMode === 'edit' || viewMode === 'split') && (
-                    <div className="min-h-[500px]">
-                      <CodeEditor
-                        value={markdown}
-                        language="markdown"
-                        placeholder="Markdown content will appear here..."
-                        onChange={(e) => setMarkdown(e.target.value)}
-                        padding={15}
-                        style={{
-                          fontSize: 14,
-                          fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-                          minHeight: '500px',
-                          backgroundColor: 'hsl(var(--background))',
-                          color: 'hsl(var(--foreground))',
-                          borderRadius: '0.5rem',
-                          border: '1px solid hsl(var(--border))',
-                        }}
-                        className="w-full"
-                      />
-                    </div>
-                  )}
-                  
-                  {(viewMode === 'preview' || viewMode === 'split') && (
-                    <div className="min-h-[500px] border border-border rounded-lg p-4 overflow-auto">
-                      <MarkdownPreview content={markdown} />
-                    </div>
-                  )}
+                <div className="border border-border rounded-lg p-6 bg-background prose prose-neutral dark:prose-invert max-w-none overflow-auto" style={{ maxHeight: '500px' }}>
+                  <MarkdownPreview content={markdown} theme="vscDarkPlus" />
                 </div>
               </div>
             )}
-          </div>
+          </Card>
         </div>
-      </Card>
+      )}
     </div>
   );
 };
