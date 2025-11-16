@@ -4,12 +4,23 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download, FileText } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Loader2, Download, FileText, Globe } from 'lucide-react';
+
+interface ScrapeStats {
+  total: number;
+  success: number;
+  failed: number;
+}
 
 export const ScraperForm = () => {
   const [url, setUrl] = useState('');
   const [markdown, setMarkdown] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [useSitemap, setUseSitemap] = useState(false);
+  const [maxPages, setMaxPages] = useState(50);
+  const [stats, setStats] = useState<ScrapeStats | null>(null);
   const { toast } = useToast();
 
   const handleScrape = async () => {
@@ -23,13 +34,14 @@ export const ScraperForm = () => {
     }
 
     setIsLoading(true);
+    setStats(null);
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-to-markdown`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, useSitemap, maxPages }),
       });
 
       if (!response.ok) {
@@ -39,10 +51,18 @@ export const ScraperForm = () => {
       const data = await response.json();
       setMarkdown(data.markdown);
       
-      toast({
-        title: "Success",
-        description: "Website scraped successfully",
-      });
+      if (data.stats) {
+        setStats(data.stats);
+        toast({
+          title: "Success",
+          description: `Scraped ${data.stats.success} of ${data.stats.total} pages successfully`,
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Website scraped successfully",
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -84,39 +104,86 @@ export const ScraperForm = () => {
       </div>
 
       <Card className="p-6 space-y-4">
-        <div className="space-y-2">
-          <label htmlFor="url" className="text-sm font-medium text-foreground">
-            Website URL
-          </label>
-          <div className="flex gap-2">
-            <Input
-              id="url"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/help"
-              className="flex-1"
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="url" className="text-sm font-medium text-foreground">
+              Website URL
+            </label>
+            <div className="flex gap-2">
+              <Input
+                id="url"
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://example.com/help"
+                className="flex-1"
+                disabled={isLoading}
+              />
+              <Button onClick={handleScrape} disabled={isLoading || !url}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Scraping...
+                  </>
+                ) : (
+                  'Scrape'
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-3">
+              <Globe className="h-5 w-5 text-primary" />
+              <div className="space-y-0.5">
+                <Label htmlFor="sitemap-mode" className="font-medium">
+                  Crawl Entire Sitemap
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Scrape all pages listed in sitemap.xml
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="sitemap-mode"
+              checked={useSitemap}
+              onCheckedChange={setUseSitemap}
               disabled={isLoading}
             />
-            <Button onClick={handleScrape} disabled={isLoading || !url}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Scraping...
-                </>
-              ) : (
-                'Scrape'
-              )}
-            </Button>
           </div>
+
+          {useSitemap && (
+            <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+              <Label htmlFor="max-pages" className="text-sm font-medium">
+                Max Pages to Scrape: {maxPages}
+              </Label>
+              <Input
+                id="max-pages"
+                type="number"
+                min="1"
+                max="100"
+                value={maxPages}
+                onChange={(e) => setMaxPages(parseInt(e.target.value) || 50)}
+                disabled={isLoading}
+              />
+            </div>
+          )}
         </div>
 
         {markdown && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">
-                Markdown Preview
-              </label>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-foreground">
+                  Markdown Preview
+                </label>
+                {stats && (
+                  <p className="text-xs text-muted-foreground">
+                    Successfully scraped {stats.success} of {stats.total} pages
+                    {stats.failed > 0 && ` (${stats.failed} failed)`}
+                  </p>
+                )}
+              </div>
               <Button onClick={handleDownload} variant="outline" size="sm">
                 <Download className="mr-2 h-4 w-4" />
                 Download MD
