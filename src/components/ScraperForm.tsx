@@ -13,6 +13,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { exportToPDF } from '@/utils/pdfExport';
 import { exportToHTML } from '@/utils/htmlExport';
 import { generateTableOfContents } from '@/utils/markdownUtils';
@@ -28,6 +38,7 @@ export const ScraperForm = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [useManualPaste, setUseManualPaste] = useState(false);
   const [sectionTitle, setSectionTitle] = useState('');
+  const [showClearDialog, setShowClearDialog] = useState(false);
   const { toast } = useToast();
 
   const handleFetchUrl = async () => {
@@ -292,7 +303,7 @@ export const ScraperForm = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setMarkdown('')}
+                  onClick={() => setShowClearDialog(true)}
                   className="ml-auto"
                 >
                   Clear All
@@ -483,6 +494,29 @@ export const ScraperForm = () => {
           </Card>
         </div>
       )}
+
+      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all content?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all accumulated markdown content. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setMarkdown('');
+              toast({
+                title: "Cleared",
+                description: "All content has been cleared",
+              });
+            }}>
+              Clear All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
