@@ -205,7 +205,7 @@ export const ScraperForm = () => {
 
       toast({
         title: "Downloaded",
-        description: "PDF file downloaded successfully",
+        description: "PDF with all sections and table of contents downloaded successfully",
       });
     } catch (error) {
       toast({
@@ -377,7 +377,7 @@ export const ScraperForm = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleExportPDF}>
                       <FileType className="h-4 w-4 mr-2" />
-                      PDF (.pdf)
+                      PDF (.pdf) - All sections
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

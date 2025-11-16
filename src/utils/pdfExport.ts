@@ -38,14 +38,18 @@ export const exportToPDF = async ({ markdown, toc, filename = 'scraped-content.p
   // Title page
   pdf.setFontSize(24);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('Web Scrape Documentation', pageWidth / 2, currentY, { align: 'center' });
+  pdf.text('Combined Content Export', pageWidth / 2, currentY, { align: 'center' });
   currentY += 15;
 
   pdf.setFontSize(10);
   pdf.setFont('helvetica', 'normal');
   const date = new Date().toLocaleDateString();
   pdf.text(`Generated on: ${date}`, pageWidth / 2, currentY, { align: 'center' });
-  currentY += 20;
+  currentY += 5;
+  
+  const sections = markdown.split('---').length;
+  pdf.text(`Total sections: ${sections}`, pageWidth / 2, currentY, { align: 'center' });
+  currentY += 15;
 
   // Table of Contents
   if (toc.length > 0) {
@@ -119,13 +123,15 @@ export const exportToPDF = async ({ markdown, toc, filename = 'scraped-content.p
       continue;
     }
 
-    // Handle horizontal rules
+    // Handle horizontal rules (section separators)
     if (line === '---' || line === '***') {
-      checkPageBreak(10);
-      currentY += 5;
-      pdf.setLineWidth(0.5);
+      checkPageBreak(15);
+      currentY += 8;
+      pdf.setLineWidth(1);
+      pdf.setDrawColor(150, 150, 150);
       pdf.line(margin, currentY, pageWidth - margin, currentY);
-      currentY += 5;
+      pdf.setDrawColor(0, 0, 0);
+      currentY += 8;
       continue;
     }
 
