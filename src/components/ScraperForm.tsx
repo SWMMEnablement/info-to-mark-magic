@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Download, FileText, Globe, List, FileDown, Save, Code, Clock, ChevronDown } from 'lucide-react';
+import { Loader2, Download, FileText, Globe, List, FileDown, Save, Code, Clock, ChevronDown, FileJson } from 'lucide-react';
 import { generateTableOfContents, addTocToMarkdown, type TocItem } from '@/utils/markdownUtils';
 import { exportToPDF } from '@/utils/pdfExport';
 import { exportToHTML } from '@/utils/htmlExport';
@@ -271,6 +271,46 @@ export const ScraperForm = () => {
     }
   };
 
+  const handleDownloadJSON = () => {
+    if (!editedMarkdown) return;
+
+    try {
+      const jsonData = {
+        url,
+        markdown: editedMarkdown,
+        toc,
+        stats,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          usedSitemap: useSitemap,
+          maxPages: useSitemap ? maxPages : 1,
+          addedToc: addToc
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = 'scraped-content.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+
+      toast({
+        title: "Downloaded",
+        description: "JSON file saved successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate JSON",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSaveToBatch = () => {
     if (!markdown || !url) return;
 
@@ -499,6 +539,10 @@ export const ScraperForm = () => {
                 <Button onClick={handleDownload} variant="outline" size="sm">
                   <Download className="mr-2 h-4 w-4" />
                   Download MD
+                </Button>
+                <Button onClick={handleDownloadJSON} variant="outline" size="sm">
+                  <FileJson className="mr-2 h-4 w-4" />
+                  Export JSON
                 </Button>
                 <Button onClick={handleDownloadHTML} variant="outline" size="sm">
                   <Code className="mr-2 h-4 w-4" />
