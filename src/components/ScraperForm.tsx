@@ -141,10 +141,6 @@ export const ScraperForm = () => {
         throw new Error('Failed to scrape website');
       }
 
-        if (!response.ok) {
-          throw new Error('Failed to scrape website');
-        }
-
         const data = await response.json();
         let finalMarkdown = data.markdown;
         
