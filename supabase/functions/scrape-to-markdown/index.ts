@@ -18,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url, useSitemap = false, maxPages = MAX_PAGES } = await req.json();
+    const { url, useSitemap = false, maxPages = MAX_PAGES, stream = false } = await req.json();
 
     if (!url) {
       return new Response(
@@ -27,9 +27,83 @@ serve(async (req) => {
       );
     }
 
-    console.log('Fetching URL:', url, 'Use sitemap:', useSitemap);
+    console.log('Fetching URL:', url, 'Use sitemap:', useSitemap, 'Stream:', stream);
 
-    // If sitemap mode, fetch and parse sitemap
+    // If sitemap mode with streaming
+    if (useSitemap && stream) {
+      const urls = await fetchSitemapUrls(url, maxPages);
+      console.log(`Found ${urls.length} URLs in sitemap`);
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          // Send initial progress
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+            type: 'start', 
+            total: urls.length 
+          })}\n\n`));
+
+          let combinedMarkdown = `# Scraped from ${url}\n\n`;
+          let successCount = 0;
+
+          for (let i = 0; i < urls.length; i++) {
+            const pageUrl = urls[i];
+            console.log(`Scraping page ${i + 1}/${urls.length}: ${pageUrl}`);
+
+            try {
+              const markdown = await scrapeUrlToMarkdown(pageUrl);
+              combinedMarkdown += `\n---\n\n## Page: ${pageUrl}\n\n${markdown}\n\n`;
+              successCount++;
+
+              // Send progress update
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'progress',
+                current: i + 1,
+                total: urls.length,
+                url: pageUrl,
+                success: true
+              })}\n\n`));
+            } catch (error) {
+              console.error(`Failed to scrape ${pageUrl}:`, error);
+              combinedMarkdown += `\n---\n\n## Page: ${pageUrl}\n\n*Failed to scrape this page*\n\n`;
+
+              // Send failure update
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'progress',
+                current: i + 1,
+                total: urls.length,
+                url: pageUrl,
+                success: false
+              })}\n\n`));
+            }
+          }
+
+          // Send final result
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: 'complete',
+            markdown: combinedMarkdown,
+            stats: {
+              total: urls.length,
+              success: successCount,
+              failed: urls.length - successCount
+            }
+          })}\n\n`));
+
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        }
+      });
+    }
+
+    // If sitemap mode without streaming
     if (useSitemap) {
       const urls = await fetchSitemapUrls(url, maxPages);
       console.log(`Found ${urls.length} URLs in sitemap`);

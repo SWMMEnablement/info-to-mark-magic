@@ -6,12 +6,20 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Loader2, Download, FileText, Globe } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Download, FileText, Globe, List } from 'lucide-react';
+import { generateTableOfContents, addTocToMarkdown, type TocItem } from '@/utils/markdownUtils';
 
 interface ScrapeStats {
   total: number;
   success: number;
   failed: number;
+}
+
+interface ProgressState {
+  current: number;
+  total: number;
+  currentUrl: string;
 }
 
 export const ScraperForm = () => {
@@ -21,6 +29,9 @@ export const ScraperForm = () => {
   const [useSitemap, setUseSitemap] = useState(false);
   const [maxPages, setMaxPages] = useState(50);
   const [stats, setStats] = useState<ScrapeStats | null>(null);
+  const [progress, setProgress] = useState<ProgressState | null>(null);
+  const [addToc, setAddToc] = useState(true);
+  const [toc, setToc] = useState<TocItem[]>([]);
   const { toast } = useToast();
 
   const handleScrape = async () => {
@@ -35,33 +46,121 @@ export const ScraperForm = () => {
 
     setIsLoading(true);
     setStats(null);
+    setProgress(null);
+    setToc([]);
+    
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-to-markdown`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url, useSitemap, maxPages }),
-      });
+      // Use streaming for sitemap mode
+      if (useSitemap) {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-to-markdown`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url, useSitemap, maxPages, stream: true }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to scrape website');
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error('No response body');
+        }
+
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'start') {
+                setProgress({ current: 0, total: data.total, currentUrl: '' });
+              } else if (data.type === 'progress') {
+                setProgress({
+                  current: data.current,
+                  total: data.total,
+                  currentUrl: data.url
+                });
+              } else if (data.type === 'complete') {
+                let finalMarkdown = data.markdown;
+                
+                // Generate and add TOC if enabled
+                if (addToc) {
+                  const tocItems = generateTableOfContents(finalMarkdown);
+                  setToc(tocItems);
+                  if (tocItems.length > 0) {
+                    finalMarkdown = addTocToMarkdown(finalMarkdown, tocItems);
+                  }
+                }
+                
+                setMarkdown(finalMarkdown);
+                setStats(data.stats);
+                setProgress(null);
+                
+                toast({
+                  title: "Success",
+                  description: `Scraped ${data.stats.success} of ${data.stats.total} pages successfully`,
+                });
+              }
+            }
+          }
+        }
+      } else {
+        // Non-streaming single page mode
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-to-markdown`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url, useSitemap, maxPages }),
+        });
 
       if (!response.ok) {
         throw new Error('Failed to scrape website');
       }
 
-      const data = await response.json();
-      setMarkdown(data.markdown);
-      
-      if (data.stats) {
-        setStats(data.stats);
-        toast({
-          title: "Success",
-          description: `Scraped ${data.stats.success} of ${data.stats.total} pages successfully`,
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Website scraped successfully",
-        });
+        if (!response.ok) {
+          throw new Error('Failed to scrape website');
+        }
+
+        const data = await response.json();
+        let finalMarkdown = data.markdown;
+        
+        // Generate and add TOC if enabled
+        if (addToc) {
+          const tocItems = generateTableOfContents(finalMarkdown);
+          setToc(tocItems);
+          if (tocItems.length > 0) {
+            finalMarkdown = addTocToMarkdown(finalMarkdown, tocItems);
+          }
+        }
+        
+        setMarkdown(finalMarkdown);
+        
+        if (data.stats) {
+          setStats(data.stats);
+          toast({
+            title: "Success",
+            description: `Scraped ${data.stats.success} of ${data.stats.total} pages successfully`,
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: "Website scraped successfully",
+          });
+        }
       }
     } catch (error) {
       toast({
@@ -153,25 +252,66 @@ export const ScraperForm = () => {
           </div>
 
           {useSitemap && (
-            <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
-              <Label htmlFor="max-pages" className="text-sm font-medium">
-                Max Pages to Scrape: {maxPages}
-              </Label>
-              <Input
-                id="max-pages"
-                type="number"
-                min="1"
-                max="100"
-                value={maxPages}
-                onChange={(e) => setMaxPages(parseInt(e.target.value) || 50)}
-                disabled={isLoading}
-              />
-            </div>
+            <>
+              <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                <Label htmlFor="max-pages" className="text-sm font-medium">
+                  Max Pages to Scrape: {maxPages}
+                </Label>
+                <Input
+                  id="max-pages"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={maxPages}
+                  onChange={(e) => setMaxPages(parseInt(e.target.value) || 50)}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <List className="h-5 w-5 text-primary" />
+                  <div className="space-y-0.5">
+                    <Label htmlFor="toc-mode" className="font-medium">
+                      Generate Table of Contents
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Automatically add navigation links
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="toc-mode"
+                  checked={addToc}
+                  onCheckedChange={setAddToc}
+                  disabled={isLoading}
+                />
+              </div>
+            </>
           )}
         </div>
 
+        {progress && (
+          <div className="space-y-2 p-4 bg-primary/5 rounded-lg border border-primary/20">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-foreground">
+                Scraping Progress: {progress.current} / {progress.total}
+              </span>
+              <span className="text-muted-foreground">
+                {Math.round((progress.current / progress.total) * 100)}%
+              </span>
+            </div>
+            <Progress value={(progress.current / progress.total) * 100} className="h-2" />
+            {progress.currentUrl && (
+              <p className="text-xs text-muted-foreground truncate">
+                Current: {progress.currentUrl}
+              </p>
+            )}
+          </div>
+        )}
+
         {markdown && (
-          <div className="space-y-2">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <label className="text-sm font-medium text-foreground">
@@ -181,6 +321,11 @@ export const ScraperForm = () => {
                   <p className="text-xs text-muted-foreground">
                     Successfully scraped {stats.success} of {stats.total} pages
                     {stats.failed > 0 && ` (${stats.failed} failed)`}
+                  </p>
+                )}
+                {toc.length > 0 && (
+                  <p className="text-xs text-primary">
+                    Table of contents with {toc.length} sections generated
                   </p>
                 )}
               </div>
