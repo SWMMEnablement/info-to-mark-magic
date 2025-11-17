@@ -278,6 +278,25 @@ export const ScraperForm = () => {
     }
   };
 
+  const handleDownloadSource = () => {
+    if (!sourceHtml) return;
+
+    const blob = new Blob([sourceHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'source.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Downloaded",
+      description: "HTML source file downloaded successfully",
+    });
+  };
+
   return (
     <div className="container max-w-6xl mx-auto px-4">
       <div className="text-center mb-12">
@@ -531,10 +550,16 @@ export const ScraperForm = () => {
                       Read-only view of the source HTML with line numbers
                     </p>
                   </div>
-                  <Button onClick={handleCopySource} variant="outline" size="sm" disabled={!sourceHtml}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy HTML
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={handleDownloadSource} variant="outline" size="sm" disabled={!sourceHtml}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download HTML
+                    </Button>
+                    <Button onClick={handleCopySource} variant="outline" size="sm" disabled={!sourceHtml}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy HTML
+                    </Button>
+                  </div>
                 </div>
                 <div className="max-h-[600px] overflow-auto">
                   {sourceHtml ? (
