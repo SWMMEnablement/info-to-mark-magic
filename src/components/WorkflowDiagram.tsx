@@ -10,12 +10,12 @@ export const WorkflowDiagram = () => {
       startOnLoad: true, 
       theme: 'default',
       themeVariables: {
-        primaryColor: 'hsl(var(--primary))',
-        primaryTextColor: '#fff',
-        primaryBorderColor: 'hsl(var(--primary))',
-        lineColor: 'hsl(var(--border))',
-        secondaryColor: 'hsl(var(--secondary))',
-        tertiaryColor: 'hsl(var(--muted))',
+        primaryColor: '#4A90E2',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: '#4A90E2',
+        lineColor: '#A0AEC0',
+        secondaryColor: '#E2E8F0',
+        tertiaryColor: '#E2E8F0',
       }
     });
 
