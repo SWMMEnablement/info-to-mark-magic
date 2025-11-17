@@ -259,6 +259,24 @@ export const ScraperForm = () => {
     }
   };
 
+  const handleCopySource = async () => {
+    if (!sourceHtml) return;
+
+    try {
+      await navigator.clipboard.writeText(sourceHtml);
+      toast({
+        title: "Copied",
+        description: "HTML source copied to clipboard",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container max-w-6xl mx-auto px-4">
       <div className="text-center mb-12">
@@ -504,20 +522,34 @@ export const ScraperForm = () => {
             )}
 
             {viewMode === 'source' && (
-              <div className="border border-border rounded-lg overflow-hidden bg-muted/30">
-                <CodeEditor
-                  value={sourceHtml}
-                  language="html"
-                  placeholder="Original HTML source will appear here after conversion..."
-                  readOnly
-                  padding={15}
-                  data-color-mode="dark"
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
-                    minHeight: '500px',
-                  }}
-                />
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">Original HTML Source</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Read-only view of the source HTML
+                    </p>
+                  </div>
+                  <Button onClick={handleCopySource} variant="outline" size="sm" disabled={!sourceHtml}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy HTML
+                  </Button>
+                </div>
+                <div className="border border-border rounded-lg overflow-hidden bg-muted/30">
+                  <CodeEditor
+                    value={sourceHtml}
+                    language="html"
+                    placeholder="Original HTML source will appear here after conversion..."
+                    readOnly
+                    padding={15}
+                    data-color-mode="dark"
+                    style={{
+                      fontSize: 13,
+                      fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+                      minHeight: '500px',
+                    }}
+                  />
+                </div>
               </div>
             )}
           </Card>
