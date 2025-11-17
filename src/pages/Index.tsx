@@ -1,5 +1,6 @@
 import { ScraperForm } from '@/components/ScraperForm';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { WorkflowDiagram } from '@/components/WorkflowDiagram';
 
 const Index = () => {
   return (
@@ -7,7 +8,10 @@ const Index = () => {
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
-      <ScraperForm />
+      <div className="container mx-auto px-4 max-w-7xl">
+        <WorkflowDiagram />
+        <ScraperForm />
+      </div>
     </div>
   );
 };
