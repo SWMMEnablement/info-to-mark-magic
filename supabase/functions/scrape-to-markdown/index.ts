@@ -713,6 +713,9 @@ async function scrapeUrlToMarkdown(url: string): Promise<{ markdown: string; htm
     .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, '')
     // Remove comments
     .replace(/<!--[\s\S]*?-->/g, '')
+    // Convert section tags with aria-label or data-title attributes to headings
+    .replace(/<section[^>]*(?:aria-label|data-title)=["']([^"']*)["'][^>]*>/gi, '\n## $1\n')
+    .replace(/<section[^>]*>/gi, '\n')
     // Convert headings
     .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n\n')
     .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n\n')

@@ -26,6 +26,10 @@ export const convertHtmlToMarkdown = (html: string): string => {
   markdown = markdown.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   markdown = markdown.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
 
+  // Convert section tags with aria-label or title attributes to headings
+  markdown = markdown.replace(/<section[^>]*(?:aria-label|data-title)=["']([^"']*)["'][^>]*>/gi, '\n## $1\n');
+  markdown = markdown.replace(/<section[^>]*>/gi, '\n');
+
   // Try to extract main content
   const mainMatch = markdown.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
   const articleMatch = markdown.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
