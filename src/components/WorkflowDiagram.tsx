@@ -8,35 +8,44 @@ import { Button } from '@/components/ui/button';
 export const WorkflowDiagram = () => {
   const mermaidRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [diagramKey, setDiagramKey] = useState(0);
+  const [svgContent, setSvgContent] = useState<string>('');
 
   useEffect(() => {
-    // Get CSS variable values from the document
-    const getHslValue = (cssVar: string) => {
-      const value = getComputedStyle(document.documentElement)
-        .getPropertyValue(cssVar)
-        .trim();
-      return value ? `hsl(${value})` : '#4A90E2';
+    const renderDiagram = async () => {
+      if (!isOpen || !mermaidRef.current) return;
+
+      const getHslValue = (cssVar: string) => {
+        const value = getComputedStyle(document.documentElement)
+          .getPropertyValue(cssVar)
+          .trim();
+        return value ? `hsl(${value})` : '#4A90E2';
+      };
+
+      const primaryColor = getHslValue('--primary');
+      const accentColor = getHslValue('--accent');
+
+      mermaid.initialize({ 
+        startOnLoad: false, 
+        theme: 'base',
+        themeVariables: {
+          primaryColor: primaryColor,
+          primaryTextColor: '#ffffff',
+          primaryBorderColor: primaryColor,
+          lineColor: '#A0AEC0',
+          secondaryColor: accentColor,
+          tertiaryColor: '#E2E8F0',
+        }
+      });
+
+      try {
+        const { svg } = await mermaid.render('workflow-diagram', diagram);
+        setSvgContent(svg);
+      } catch (error) {
+        console.error('Error rendering mermaid diagram:', error);
+      }
     };
 
-    const primaryColor = getHslValue('--primary');
-    const accentColor = getHslValue('--accent');
-
-    mermaid.initialize({ 
-      startOnLoad: true, 
-      theme: 'base',
-      themeVariables: {
-        primaryColor: primaryColor,
-        primaryTextColor: '#ffffff',
-        primaryBorderColor: primaryColor,
-        lineColor: '#A0AEC0',
-        secondaryColor: accentColor,
-        tertiaryColor: '#E2E8F0',
-      }
-    });
-
-    // Force re-render after initialization
-    setDiagramKey(prev => prev + 1);
+    renderDiagram();
   }, [isOpen]);
 
   const diagram = `
@@ -89,12 +98,10 @@ export const WorkflowDiagram = () => {
         <CollapsibleContent>
           <CardContent className="animate-accordion-down">
             <div 
-              key={diagramKey}
               ref={mermaidRef} 
-              className="mermaid bg-background p-4 rounded-md overflow-x-auto"
-            >
-              {diagram}
-            </div>
+              className="bg-background p-4 rounded-md overflow-x-auto"
+              dangerouslySetInnerHTML={{ __html: svgContent }}
+            />
           </CardContent>
         </CollapsibleContent>
       </Card>
