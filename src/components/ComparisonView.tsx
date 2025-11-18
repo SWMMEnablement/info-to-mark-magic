@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Highlighter, Search, X, Split, ArrowLeftRight } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Highlighter, Search, X, Split, ArrowLeftRight, Copy } from 'lucide-react';
 import { CodeViewerWithLineNumbers } from './CodeViewerWithLineNumbers';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 
@@ -22,6 +23,7 @@ export const ComparisonView = ({ sourceHtml, markdown, onMarkdownChange }: Compa
   const [isSyncScrolling, setIsSyncScrolling] = useState(true);
   const [isSwapped, setIsSwapped] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout>();
+  const { toast } = useToast();
 
   // Get color based on match confidence score
   const getMatchColor = (score: number, totalWords: number) => {
@@ -168,6 +170,39 @@ export const ComparisonView = ({ sourceHtml, markdown, onMarkdownChange }: Compa
           (htmlScrollRef.current.scrollHeight - htmlScrollRef.current.clientHeight);
       }
     }, 10);
+  };
+
+  // Copy handlers
+  const handleCopyHtml = async () => {
+    try {
+      await navigator.clipboard.writeText(sourceHtml);
+      toast({
+        title: "Copied",
+        description: "HTML source copied to clipboard",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCopyMarkdown = async () => {
+    try {
+      await navigator.clipboard.writeText(markdown);
+      toast({
+        title: "Copied",
+        description: "Markdown content copied to clipboard",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleHtmlSelection = () => {
@@ -317,11 +352,23 @@ export const ComparisonView = ({ sourceHtml, markdown, onMarkdownChange }: Compa
             <p className="text-xs font-medium text-muted-foreground">
               Original HTML {highlightMode && "(Select text to highlight)"}
             </p>
-            {searchMatches.html.length > 0 && (
-              <span className="text-xs text-primary font-medium">
-                {searchMatches.html.length} {searchMatches.html.length === 1 ? 'match' : 'matches'}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {searchMatches.html.length > 0 && (
+                <span className="text-xs text-primary font-medium">
+                  {searchMatches.html.length} {searchMatches.html.length === 1 ? 'match' : 'matches'}
+                </span>
+              )}
+              <Button 
+                onClick={handleCopyHtml} 
+                variant="ghost" 
+                size="sm" 
+                disabled={!sourceHtml}
+                className="h-7 px-2"
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                <span className="text-xs">Copy</span>
+              </Button>
+            </div>
           </div>
           <div 
             ref={htmlScrollRef}
@@ -369,11 +416,22 @@ export const ComparisonView = ({ sourceHtml, markdown, onMarkdownChange }: Compa
             <p className="text-xs font-medium text-muted-foreground">
               Converted Markdown {highlightMode && "(Select text to find in HTML)"}
             </p>
-            {searchMatches.markdown.length > 0 && (
-              <span className="text-xs text-primary font-medium">
-                {searchMatches.markdown.length} {searchMatches.markdown.length === 1 ? 'match' : 'matches'}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {searchMatches.markdown.length > 0 && (
+                <span className="text-xs text-primary font-medium">
+                  {searchMatches.markdown.length} {searchMatches.markdown.length === 1 ? 'match' : 'matches'}
+                </span>
+              )}
+              <Button 
+                onClick={handleCopyMarkdown} 
+                variant="ghost" 
+                size="sm"
+                className="h-7 px-2"
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                <span className="text-xs">Copy</span>
+              </Button>
+            </div>
           </div>
           <div 
             ref={mdScrollRef}
