@@ -64,6 +64,10 @@ export const ScraperForm = () => {
   const [pdfFilename, setPdfFilename] = useState('');
   const [sectionHeadingLevel, setSectionHeadingLevel] = useState('2');
   const [useFirecrawl, setUseFirecrawl] = useState(false);
+  const [useSitemap, setUseSitemap] = useState(false);
+  const [maxPages, setMaxPages] = useState('10');
+  const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
+  const [isCrawling, setIsCrawling] = useState(false);
   const { toast } = useToast();
 
   const handleFetchUrl = async () => {
@@ -77,7 +81,82 @@ export const ScraperForm = () => {
     }
 
     setIsLoading(true);
+    setIsCrawling(useSitemap);
+    
     try {
+      // Handle sitemap crawling with streaming
+      if (useSitemap) {
+        setCrawlProgress({ current: 0, total: 0 });
+        
+        const response = await fetch('https://evzhqncqhityotzodfsp.supabase.co/functions/v1/scrape-to-markdown', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: url.trim(),
+            useSitemap: true,
+            maxPages: parseInt(maxPages),
+            stream: true,
+            sectionHeadingLevel: parseInt(sectionHeadingLevel)
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.statusText}`);
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        
+        if (!reader) {
+          throw new Error('No response body');
+        }
+
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (!line.trim() || !line.startsWith('data: ')) continue;
+            
+            const data = line.substring(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              
+              if (parsed.type === 'progress') {
+                setCrawlProgress({ current: parsed.current, total: parsed.total });
+              } else if (parsed.type === 'page') {
+                const titlePrefix = parsed.title ? `## ${parsed.title}\n\n` : '';
+                const content = titlePrefix + parsed.markdown;
+                setMarkdown(prev => prev ? prev + '\n\n---\n\n' + content : content);
+                setSourceHtml(prev => prev ? prev + '\n\n<!-- Section Separator -->\n\n' + parsed.html : parsed.html);
+              } else if (parsed.type === 'complete') {
+                toast({
+                  title: "Crawl Complete",
+                  description: `Successfully scraped ${parsed.count} pages`,
+                });
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e);
+            }
+          }
+        }
+        
+        setSectionTitle('');
+        setIsCrawling(false);
+        return;
+      }
+
+      // Handle single page scraping (Firecrawl or basic)
       const endpoint = useFirecrawl 
         ? 'https://evzhqncqhityotzodfsp.supabase.co/functions/v1/firecrawl-scrape'
         : 'https://evzhqncqhityotzodfsp.supabase.co/functions/v1/scrape-to-markdown';
@@ -482,17 +561,66 @@ export const ScraperForm = () => {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 
-                <div className="flex items-center justify-between gap-3 py-3 px-1">
+                <div className="space-y-3 py-3">
                   <div className="flex items-center gap-2">
                     <Switch
-                      id="firecrawl-mode"
-                      checked={useFirecrawl}
-                      onCheckedChange={setUseFirecrawl}
+                      id="sitemap-mode"
+                      checked={useSitemap}
+                      onCheckedChange={(checked) => {
+                        setUseSitemap(checked);
+                        if (checked) setUseFirecrawl(false);
+                      }}
+                      disabled={useFirecrawl}
                     />
-                    <Label htmlFor="firecrawl-mode" className="text-sm cursor-pointer">
-                      Use Firecrawl (for JavaScript-heavy sites)
+                    <Label htmlFor="sitemap-mode" className="text-sm cursor-pointer">
+                      Crawl entire sitemap
                     </Label>
                   </div>
+                  
+                  {useSitemap && (
+                    <div className="ml-6 space-y-2">
+                      <Label htmlFor="max-pages" className="text-xs text-muted-foreground">
+                        Max pages to crawl
+                      </Label>
+                      <Input
+                        id="max-pages"
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={maxPages}
+                        onChange={(e) => setMaxPages(e.target.value)}
+                        className="w-32"
+                      />
+                    </div>
+                  )}
+                  
+                  {!useSitemap && (
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="firecrawl-mode"
+                        checked={useFirecrawl}
+                        onCheckedChange={setUseFirecrawl}
+                      />
+                      <Label htmlFor="firecrawl-mode" className="text-sm cursor-pointer">
+                        Use Firecrawl (for JavaScript-heavy sites)
+                      </Label>
+                    </div>
+                  )}
+                  
+                  {isCrawling && crawlProgress.total > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Crawling progress</span>
+                        <span>{crawlProgress.current} / {crawlProgress.total}</span>
+                      </div>
+                      <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-primary h-full transition-all duration-300"
+                          style={{ width: `${(crawlProgress.current / crawlProgress.total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <Button 
@@ -504,12 +632,12 @@ export const ScraperForm = () => {
                   {isLoading ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      Fetching...
+                      {isCrawling ? 'Crawling...' : 'Fetching...'}
                     </>
                   ) : (
                     <>
                       <FileCode className="h-5 w-5" />
-                      Fetch & Convert to Markdown
+                      {useSitemap ? 'Crawl Sitemap' : 'Fetch & Convert to Markdown'}
                     </>
                   )}
                 </Button>
