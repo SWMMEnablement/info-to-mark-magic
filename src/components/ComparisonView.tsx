@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Highlighter, Search, X, Split } from 'lucide-react';
+import { Highlighter, Search, X, Split, ArrowLeftRight } from 'lucide-react';
 import { CodeViewerWithLineNumbers } from './CodeViewerWithLineNumbers';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 
@@ -20,6 +20,7 @@ export const ComparisonView = ({ sourceHtml, markdown, onMarkdownChange }: Compa
   const htmlScrollRef = useRef<HTMLDivElement>(null);
   const mdScrollRef = useRef<HTMLDivElement>(null);
   const [isSyncScrolling, setIsSyncScrolling] = useState(true);
+  const [isSwapped, setIsSwapped] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Get color based on match confidence score
@@ -225,6 +226,14 @@ export const ComparisonView = ({ sourceHtml, markdown, onMarkdownChange }: Compa
           </div>
           <div className="flex gap-2">
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSwapped(!isSwapped)}
+            >
+              <ArrowLeftRight className="h-4 w-4 mr-2" />
+              Swap
+            </Button>
+            <Button
               variant={isSyncScrolling ? "default" : "outline"}
               size="sm"
               onClick={() => setIsSyncScrolling(!isSyncScrolling)}
@@ -302,7 +311,8 @@ export const ComparisonView = ({ sourceHtml, markdown, onMarkdownChange }: Compa
         )}
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <div>
+        {/* HTML Panel */}
+        <div className={isSwapped ? 'order-2' : 'order-1'}>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">
               Original HTML {highlightMode && "(Select text to highlight)"}
@@ -352,7 +362,9 @@ export const ComparisonView = ({ sourceHtml, markdown, onMarkdownChange }: Compa
             )}
           </div>
         </div>
-        <div>
+
+        {/* Markdown Panel */}
+        <div className={isSwapped ? 'order-1' : 'order-2'}>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">
               Converted Markdown {highlightMode && "(Select text to find in HTML)"}
