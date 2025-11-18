@@ -16,6 +16,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -25,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 import { exportToPDF } from '@/utils/pdfExport';
 import { exportToHTML } from '@/utils/htmlExport';
 import { generateTableOfContents } from '@/utils/markdownUtils';
@@ -43,6 +52,8 @@ export const ScraperForm = () => {
   const [sectionTitle, setSectionTitle] = useState('');
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [sourceHtml, setSourceHtml] = useState('');
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [pdfFilename, setPdfFilename] = useState('');
   const { toast } = useToast();
 
   const handleFetchUrl = async () => {
@@ -220,15 +231,25 @@ export const ScraperForm = () => {
     }
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
+    if (!markdown) return;
+
+    // Generate default filename
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const defaultFilename = url 
+      ? `${new URL(url).hostname.replace(/\./g, '-')}-${timestamp}`
+      : `content-${timestamp}`;
+    
+    setPdfFilename(defaultFilename);
+    setShowPdfDialog(true);
+  };
+
+  const handleConfirmPdfExport = async () => {
     if (!markdown) return;
 
     try {
       const toc = generateTableOfContents(markdown);
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      const filename = url 
-        ? `${new URL(url).hostname.replace(/\./g, '-')}-${timestamp}.pdf`
-        : `content-${timestamp}.pdf`;
+      const filename = pdfFilename.endsWith('.pdf') ? pdfFilename : `${pdfFilename}.pdf`;
       
       await exportToPDF({
         markdown,
@@ -236,6 +257,7 @@ export const ScraperForm = () => {
         filename,
       });
 
+      setShowPdfDialog(false);
       toast({
         title: "Downloaded",
         description: "PDF with all sections and table of contents downloaded successfully",
@@ -361,7 +383,7 @@ export const ScraperForm = () => {
         <div className="flex items-center justify-center gap-3 mb-4">
           <Droplets className="h-10 w-10 text-primary animate-pulse" />
           <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-            BobSWMM HTML to Markdown Converter
+            BobSWMM URL to Markdown Converter
           </h1>
           <FileCode className="h-10 w-10 text-primary animate-pulse" />
         </div>
@@ -678,6 +700,40 @@ export const ScraperForm = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export PDF</DialogTitle>
+            <DialogDescription>
+              Customize the filename for your PDF export
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="filename">Filename</Label>
+              <Input
+                id="filename"
+                value={pdfFilename}
+                onChange={(e) => setPdfFilename(e.target.value)}
+                placeholder="Enter filename"
+                className="col-span-3"
+              />
+              <p className="text-xs text-muted-foreground">
+                {pdfFilename && !pdfFilename.endsWith('.pdf') ? `${pdfFilename}.pdf` : pdfFilename || 'filename.pdf'}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPdfDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmPdfExport}>
+              Export PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
