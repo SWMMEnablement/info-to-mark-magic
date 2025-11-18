@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download, Copy, Eye, Code, Split, FileText, FileCode, FileType, Droplets, FileDown } from 'lucide-react';
+import { Loader2, Download, Copy, Eye, Code, Split, FileText, FileCode, FileType, Droplets, FileDown, Columns } from 'lucide-react';
 import CodeEditor from '@uiw/react-textarea-code-editor';
 import { MarkdownPreview } from './MarkdownPreview';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,7 +30,7 @@ import { generateTableOfContents } from '@/utils/markdownUtils';
 import { convertHtmlToMarkdown } from '@/utils/htmlToMarkdown';
 import jsPDF from 'jspdf';
 
-type ViewMode = 'edit' | 'preview' | 'split' | 'source';
+type ViewMode = 'edit' | 'preview' | 'split' | 'source' | 'comparison';
 
 export const ScraperForm = () => {
   const [url, setUrl] = useState('');
@@ -544,6 +544,15 @@ export const ScraperForm = () => {
                 <FileCode className="h-4 w-4 mr-1" />
                 Source
               </Button>
+              <Button
+                variant={viewMode === 'comparison' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('comparison')}
+                disabled={!sourceHtml}
+              >
+                <Columns className="h-4 w-4 mr-1" />
+                Compare
+              </Button>
             </div>
 
             {viewMode === 'edit' && (
@@ -625,6 +634,55 @@ export const ScraperForm = () => {
                       Original HTML source will appear here after conversion...
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {viewMode === 'comparison' && (
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">HTML to Markdown Comparison</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Side-by-side view of original HTML and converted markdown
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="mb-2">
+                      <p className="text-xs font-medium text-muted-foreground">Original HTML</p>
+                    </div>
+                    <div className="max-h-[600px] overflow-auto">
+                      {sourceHtml ? (
+                        <CodeViewerWithLineNumbers code={sourceHtml} language="html" />
+                      ) : (
+                        <div className="border border-border rounded-lg p-8 bg-muted/30 text-center text-muted-foreground text-sm">
+                          No HTML source available
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-2">
+                      <p className="text-xs font-medium text-muted-foreground">Converted Markdown</p>
+                    </div>
+                    <div className="border border-border rounded-lg overflow-hidden bg-muted/30 max-h-[600px] overflow-auto">
+                      <CodeEditor
+                        value={markdown}
+                        language="markdown"
+                        placeholder="Converted markdown..."
+                        onChange={(e) => setMarkdown(e.target.value)}
+                        padding={15}
+                        data-color-mode="dark"
+                        style={{
+                          fontSize: 13,
+                          fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+                          minHeight: '600px',
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
