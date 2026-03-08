@@ -20,9 +20,27 @@ const themeMap = {
   vs,
 };
 
-export const MarkdownPreview = ({ content, theme = 'vscDarkPlus' }: MarkdownPreviewProps) => {
+export const MarkdownPreview = ({ content, theme = 'vscDarkPlus', scrollToHeading }: MarkdownPreviewProps) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (scrollToHeading && containerRef.current) {
+      const el = containerRef.current.querySelector(`[id="${scrollToHeading}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [scrollToHeading]);
+
+  const makeId = (children: React.ReactNode) => {
+    const text = typeof children === 'string' ? children : 
+      Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') :
+      '';
+    return text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+  };
+
   return (
-    <div className="prose prose-sm max-w-none dark:prose-invert bg-background p-6 rounded-lg border border-border overflow-auto max-h-[600px]">
+    <div ref={containerRef} className="prose prose-sm max-w-none dark:prose-invert bg-background p-6 rounded-lg border border-border overflow-auto max-h-[600px]">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -44,17 +62,17 @@ export const MarkdownPreview = ({ content, theme = 'vscDarkPlus' }: MarkdownPrev
             );
           },
           h1: ({ children }) => (
-            <h1 className="text-3xl font-bold mt-8 mb-4 text-foreground border-b border-border pb-2">
+            <h1 id={makeId(children)} className="text-3xl font-bold mt-8 mb-4 text-foreground border-b border-border pb-2">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-2xl font-bold mt-6 mb-3 text-foreground border-b border-border pb-1">
+            <h2 id={makeId(children)} className="text-2xl font-bold mt-6 mb-3 text-foreground border-b border-border pb-1">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-xl font-semibold mt-5 mb-2 text-foreground">
+            <h3 id={makeId(children)} className="text-xl font-semibold mt-5 mb-2 text-foreground">
               {children}
             </h3>
           ),
