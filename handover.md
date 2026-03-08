@@ -342,7 +342,7 @@ All exports are generated **client-side** (no server round-trip needed):
 - Download as PDF (source code formatted)
 - Copy to clipboard
 
-### 5.8 Template Library
+### 5.9 Template Library
 
 **Component:** `TemplateLibrary.tsx`  
 **Data:** `markdownTemplates.ts`
