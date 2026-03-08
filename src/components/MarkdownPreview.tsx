@@ -8,6 +8,7 @@ export type SyntaxTheme = 'vscDarkPlus' | 'oneDark' | 'atomDark' | 'nightOwl' | 
 interface MarkdownPreviewProps {
   content: string;
   theme?: SyntaxTheme;
+  scrollToHeading?: string | null;
 }
 
 const themeMap = {
