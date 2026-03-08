@@ -1,6 +1,6 @@
 # BobSWMM URL to Markdown Converter — Handover Document
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** 2026-03-08  
 **Project URL:** https://lovable.dev/projects/ef41f2de-370a-47bc-adf2-fed32a053c2f  
 **Published URL:** https://info-to-mark-magic.lovable.app
@@ -19,11 +19,11 @@
   - [5.3 Firecrawl Integration](#53-firecrawl-integration)
   - [5.4 Sitemap Crawler](#54-sitemap-crawler)
   - [5.5 Markdown Editor & Preview](#55-markdown-editor--preview)
-  - [5.6 Comparison View](#56-comparison-view)
-  - [5.7 Export Options](#57-export-options)
-  - [5.8 Template Library](#58-template-library)
-  - [5.9 Workflow Diagram](#59-workflow-diagram)
-- [6. Backend (Edge Functions)](#6-backend-edge-functions)
+  - [5.6 Table of Contents Sidebar](#56-table-of-contents-sidebar)
+  - [5.7 Comparison View](#57-comparison-view)
+  - [5.8 Export Options](#58-export-options)
+  - [5.9 Template Library](#59-template-library)
+  - [5.10 Workflow Diagram](#510-workflow-diagram)
   - [6.1 scrape-to-markdown](#61-scrape-to-markdown)
   - [6.2 firecrawl-scrape](#62-firecrawl-scrape)
 - [7. Database Schema](#7-database-schema)
@@ -140,10 +140,11 @@
 │   ├── main.tsx                         # Entry point
 │   ├── index.css                        # Tailwind directives & CSS variables
 │   ├── components/
-│   │   ├── ScraperForm.tsx              # **Main component** (919 lines) — input, scraping, results
-│   │   ├── MarkdownPreview.tsx          # Renders markdown with syntax highlighting
+│   │   ├── ScraperForm.tsx              # **Main component** (~940 lines) — input, scraping, results
+│   │   ├── MarkdownPreview.tsx          # Renders markdown with syntax highlighting + scroll-to-heading
 │   │   ├── MarkdownEditor.tsx           # Standalone editor with edit/split/preview modes
 │   │   ├── ComparisonView.tsx           # Side-by-side HTML↔Markdown comparison (546 lines)
+│   │   ├── TableOfContents.tsx          # Collapsible TOC sidebar for long documents (94 lines)
 │   │   ├── CodeViewerWithLineNumbers.tsx # Read-only code viewer with line numbers
 │   │   ├── BatchExport.tsx              # Batch export manager for multiple scrapes
 │   │   ├── TemplateLibrary.tsx          # Pre-built markdown template selector
@@ -250,8 +251,8 @@
 | Mode | Description |
 |---|---|
 | **Edit** | Full-width code editor with Markdown syntax highlighting |
-| **Split** | Side-by-side editor + live preview |
-| **Preview** | Full-width rendered Markdown preview |
+| **Split** | TOC sidebar + side-by-side editor + live preview |
+| **Preview** | TOC sidebar + full-width rendered Markdown preview with scroll-to-heading |
 | **Source** | Read-only HTML source with line numbers |
 | **Compare** | Side-by-side HTML↔Markdown comparison |
 
@@ -262,11 +263,32 @@
 **Preview Features** (`MarkdownPreview.tsx`):
 - GitHub Flavored Markdown (tables, strikethrough, task lists)
 - Syntax-highlighted code blocks (6 themes via Prism)
-- Styled headings with border separators
+- Styled headings with border separators and `id` anchors for TOC navigation
+- Scroll-to-heading support via `scrollToHeading` prop
 - External links open in new tabs
 - Responsive tables with horizontal scroll
 
-### 5.6 Comparison View
+### 5.6 Table of Contents Sidebar
+
+**Component:** `TableOfContents.tsx` (94 lines)
+
+A collapsible navigation sidebar for long Markdown documents:
+
+- **Heading Extraction**: Parses H1–H6 headings from Markdown content
+- **Hierarchical Display**: Indented headings based on level with `ChevronRight` indicators
+- **Click-to-Navigate**: Clicking a heading scrolls the preview to that section
+- **Active State**: Highlights the currently selected heading in primary color
+- **Collapsible**: Toggle between full sidebar (16rem) and icon-only (2.5rem) mode
+- **Integration**: Appears in **Preview** and **Split** view modes alongside content
+- **Styling**: Semi-transparent card background with backdrop blur, border separator
+
+**State:**
+| State | Type | Purpose |
+|---|---|---|
+| `isOpen` | boolean | Sidebar expanded/collapsed |
+| `activeId` | string \| null | Currently highlighted heading |
+
+### 5.7 Comparison View
 
 **Component:** `ComparisonView.tsx` (546 lines)
 
@@ -285,7 +307,7 @@ A sophisticated side-by-side comparison tool:
   - Compression ratio (Markdown size vs HTML size)
 - **Copy Buttons**: Copy HTML or Markdown independently
 
-### 5.7 Export Options
+### 5.8 Export Options
 
 All exports are generated **client-side** (no server round-trip needed):
 
@@ -320,7 +342,7 @@ All exports are generated **client-side** (no server round-trip needed):
 - Download as PDF (source code formatted)
 - Copy to clipboard
 
-### 5.8 Template Library
+### 5.9 Template Library
 
 **Component:** `TemplateLibrary.tsx`  
 **Data:** `markdownTemplates.ts`
@@ -336,7 +358,7 @@ Pre-built Markdown templates organized by category:
 
 Each template includes realistic placeholder content. Templates can be applied to replace or seed content.
 
-### 5.9 Workflow Diagram
+### 5.10 Workflow Diagram
 
 **Component:** `WorkflowDiagram.tsx`
 
@@ -502,6 +524,7 @@ Two tables exist for storing scraped content (currently used for data persistenc
 | `showPdfDialog` | boolean | PDF export dialog visibility |
 | `pdfFilename` | string | Custom PDF filename |
 | `showClearDialog` | boolean | Clear confirmation dialog |
+| `scrollToHeading` | string \| null | ID of heading to scroll to (from TOC) |
 
 **Key Behaviors:**
 - Content **accumulates** — each scrape appends to existing markdown with `---` separator
@@ -512,13 +535,26 @@ Two tables exist for storing scraped content (currently used for data persistenc
 
 ### MarkdownPreview
 
-**File:** `src/components/MarkdownPreview.tsx` — 98 lines
+**File:** `src/components/MarkdownPreview.tsx` — ~115 lines
 
 Renders Markdown using `react-markdown` with:
 - GFM plugin for tables, strikethrough
 - Prism syntax highlighter for code blocks
 - 6 color themes
 - Custom styled components for all Markdown elements
+- Heading `id` attributes for anchor-based scroll navigation
+- `scrollToHeading` prop for programmatic scroll-to-section (used by TOC sidebar)
+
+### TableOfContents
+
+**File:** `src/components/TableOfContents.tsx` — 94 lines
+
+Collapsible sidebar for navigating long documents:
+- Extracts H1–H6 headings from markdown content using regex
+- Displays hierarchical, indented heading tree
+- Click-to-scroll with active heading highlight
+- Collapsible toggle (full width ↔ icon strip)
+- Integrated into Preview and Split view modes in `ScraperForm`
 
 ### ComparisonView
 
