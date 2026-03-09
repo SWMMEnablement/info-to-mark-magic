@@ -164,7 +164,8 @@
 │   ├── lib/
 │   │   └── utils.ts                     # cn() utility for className merging
 │   ├── pages/
-│   │   ├── Index.tsx                    # Home page (renders ScraperForm + WorkflowDiagram)
+│   │   ├── Index.tsx                    # Home page (renders ScraperForm + WorkflowDiagram + Docs link)
+│   │   ├── Docs.tsx                     # Documentation page (renders handover.md with TOC sidebar)
 │   │   └── NotFound.tsx                 # 404 page
 │   └── utils/
 │       ├── htmlToMarkdown.ts            # Client-side HTML→Markdown converter
