@@ -822,4 +822,4 @@ Use the Lovable dependency tools — do not manually edit `package.json`.
 
 ---
 
-*This document was generated on 2026-03-08 for project handover purposes.*
+*This document was last updated on 2026-03-09 (v1.2) for project handover purposes.*
