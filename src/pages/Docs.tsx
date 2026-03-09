@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { MarkdownPreview } from '@/components/MarkdownPreview';
 import { TableOfContents } from '@/components/TableOfContents';
+import { DocsSearch } from '@/components/DocsSearch';
 import { TocItem } from '@/utils/markdownUtils';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import handoverContent from '/handover.md?raw';
 const Docs = () => {
   const [scrollToHeading, setScrollToHeading] = useState<string | null>(null);
   const navigate = useNavigate();
+  const contentRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -21,7 +23,10 @@ const Docs = () => {
           </Button>
           <h1 className="text-sm font-semibold text-foreground">Documentation</h1>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <DocsSearch containerRef={contentRef} />
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -29,7 +34,7 @@ const Docs = () => {
           markdown={handoverContent}
           onNavigate={(item: TocItem) => setScrollToHeading(item.id)}
         />
-        <div className="flex-1 overflow-auto p-6">
+        <div ref={contentRef} className="flex-1 overflow-auto p-6">
           <MarkdownPreview
             content={handoverContent}
             scrollToHeading={scrollToHeading}
